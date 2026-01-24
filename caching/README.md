@@ -1,180 +1,122 @@
-# Redis Caching Demo Application
+# Redis Caching Demo with PostgreSQL
 
-A simple Flask application demonstrating Redis caching use cases with clear performance comparisons.
+Demonstrates the **cache-aside pattern** using Redis as a cache layer in front of PostgreSQL.
 
-## Overview
+## Architecture
 
-This application simulates a slow database query (3 seconds) and demonstrates how Redis caching can dramatically improve response times for subsequent requests.
-
-## Features
-
-- Flask REST API with multiple endpoints
-- Redis caching with 60-second TTL (Time To Live)
-- Performance comparison between cached and non-cached requests
-- Cache statistics and management endpoints
-
-## Prerequisites
-
-- Docker
-- Docker Compose
+```
+┌──────────┐     ┌───────────┐     ┌────────────┐
+│  Client  │────▶│  Flask    │────▶│   Redis    │
+│          │     │   App     │     │  (Cache)   │
+└──────────┘     └─────┬─────┘     └────────────┘
+                       │ cache miss
+                       ▼
+                ┌────────────┐
+                │ PostgreSQL │
+                │    (DB)    │
+                └────────────┘
+```
 
 ## Quick Start
 
-1. Start the application:
 ```bash
 docker-compose up --build
 ```
 
-2. The application will be available at `http://localhost:5000`
+The app will be available at `http://localhost:5000`
 
 ## API Endpoints
 
-- `GET /` - Home page with endpoint documentation
-- `GET /user/<user_id>` - Get user with caching
-- `GET /user/<user_id>/no-cache` - Get user without caching
-- `GET /cache/clear` - Clear all cache
-- `GET /cache/stats` - View cache statistics
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | API documentation |
+| `GET /products` | List all products |
+| `GET /product/<id>` | Get product **with** caching |
+| `GET /product/<id>/no-cache` | Get product **without** caching |
+| `GET /cache/clear` | Clear all cache |
+| `GET /cache/stats` | View cache statistics |
 
-## Demo: Comparing Cache Performance
+## Demo: Cache vs No-Cache Performance
 
-### Test 1: Without Cache (Baseline)
-
-Request user data without caching:
+### 1. First request (cache miss) - ~2 seconds
 ```bash
-curl http://localhost:5000/user/1/no-cache
+curl http://localhost:5000/product/1
 ```
-
-Expected response time: ~3 seconds
 ```json
 {
-  "data": {
-    "user_id": 1,
-    "name": "User 1",
-    "email": "user1@example.com",
-    "created_at": "2026-01-19T..."
-  },
+  "data": {"id": 1, "name": "Wireless Mouse", "price": 29.99, ...},
   "source": "database",
-  "response_time_seconds": 3.002,
-  "message": "Data retrieved from database (no caching)"
+  "response_time_ms": 2005.3,
+  "cached_for": "60 seconds"
 }
 ```
 
-### Test 2: First Request with Cache (Cache Miss)
-
-Request user data with caching enabled (first time):
+### 2. Second request (cache hit) - ~1ms
 ```bash
-curl http://localhost:5000/user/1
+curl http://localhost:5000/product/1
 ```
-
-Expected response time: ~3 seconds (cache miss, data fetched from database)
 ```json
 {
-  "data": {
-    "user_id": 1,
-    "name": "User 1",
-    "email": "user1@example.com",
-    "created_at": "2026-01-19T..."
-  },
-  "source": "database",
-  "response_time_seconds": 3.001,
-  "message": "Data retrieved from database and cached for 60 seconds"
-}
-```
-
-### Test 3: Subsequent Request with Cache (Cache Hit)
-
-Request the same user data again within 60 seconds:
-```bash
-curl http://localhost:5000/user/1
-```
-
-Expected response time: < 0.01 seconds (cache hit, data from Redis)
-```json
-{
-  "data": {
-    "user_id": 1,
-    "name": "User 1",
-    "email": "user1@example.com",
-    "created_at": "2026-01-19T..."
-  },
+  "data": {"id": 1, "name": "Wireless Mouse", "price": 29.99, ...},
   "source": "cache",
-  "response_time_seconds": 0.003,
-  "message": "Data retrieved from Redis cache!"
+  "response_time_ms": 1.2
 }
 ```
 
-**Performance Improvement: ~1000x faster!**
-
-### Test 4: View Cache Statistics
-
+### 3. Without caching (always slow)
 ```bash
-curl http://localhost:5000/cache/stats
+curl http://localhost:5000/product/1/no-cache
 ```
-
-Response:
 ```json
 {
-  "total_keys": 1,
-  "keys": ["user:1"],
-  "keyspace_hits": 5,
-  "keyspace_misses": 1
+  "data": {"id": 1, "name": "Wireless Mouse", "price": 29.99, ...},
+  "source": "database",
+  "response_time_ms": 2003.1
 }
 ```
 
-### Test 5: Clear Cache
+**Performance improvement: ~2000x faster with cache!**
 
-```bash
-curl http://localhost:5000/cache/clear
+## How It Works (Cache-Aside Pattern)
+
+1. **Check Cache**: App first checks Redis for the requested data
+2. **Cache Hit**: If found, return immediately (~1ms)
+3. **Cache Miss**: If not found, query PostgreSQL (~2s with simulated delay)
+4. **Store in Cache**: Save result to Redis with 60s TTL
+5. **Auto-Expiration**: Redis removes stale data after TTL
+
+```
+Request → Check Redis → [HIT] → Return cached data
+                     → [MISS] → Query PostgreSQL
+                              → Store in Redis
+                              → Return data
 ```
 
-## Key Observations
+## Sample Data
 
-1. **First Request (Cache Miss)**: Takes ~3 seconds as data is fetched from the simulated database
-2. **Cached Requests (Cache Hit)**: Takes < 0.01 seconds, retrieved instantly from Redis
-3. **Performance Gain**: Approximately 300-1000x faster with caching
-4. **TTL**: Cache expires after 60 seconds, then the cycle repeats
-
-## Use Cases Demonstrated
-
-1. **Database Query Caching**: Reduce load on databases for frequently accessed data
-2. **API Response Caching**: Speed up API responses for repeated requests
-3. **Session Management**: Redis can store session data (demonstrated through user data)
-4. **Rate Limiting**: Track request counts (visible in cache stats)
-
-## Stopping the Application
-
-```bash
-docker-compose down
-```
-
-To remove volumes as well:
-```bash
-docker-compose down -v
-```
+| ID | Name | Price | Stock | Category |
+|----|------|-------|-------|----------|
+| 1 | Wireless Mouse | $29.99 | 150 | electronics |
+| 2 | USB-C Cable | $12.99 | 500 | accessories |
+| 3 | Mechanical Keyboard | $89.99 | 75 | electronics |
+| 4 | Monitor Stand | $45.00 | 200 | accessories |
+| 5 | Webcam HD | $59.99 | 100 | electronics |
 
 ## Project Structure
 
 ```
-.
-├── app.py              # Flask application with Redis caching
-├── Dockerfile          # Docker configuration for the app
-├── docker-compose.yml  # Orchestration for app + Redis
+caching/
+├── app.py              # Flask app with caching logic
+├── docker-compose.yml  # PostgreSQL + Redis + App
+├── Dockerfile          # App container
+├── init.sql            # Database schema & seed data
 ├── requirements.txt    # Python dependencies
-└── README.md          # This file
+└── README.md
 ```
 
-## How It Works
+## Stopping
 
-1. **Slow Database Query**: `simulate_slow_database_query()` simulates a 3-second database operation
-2. **Cache Check**: Before querying the database, the app checks Redis for cached data
-3. **Cache Hit**: If data exists in cache, return immediately (milliseconds)
-4. **Cache Miss**: If data not in cache, query database, then store result in Redis with 60s expiration
-5. **Automatic Expiration**: Redis automatically removes expired keys after TTL
-
-## Conclusion
-
-This demo clearly shows how Redis caching can:
-- Dramatically reduce response times (from seconds to milliseconds)
-- Reduce load on backend databases
-- Improve user experience
-- Scale applications efficiently
+```bash
+docker-compose down        # Stop containers
+docker-compose down -v     # Stop and remove volumes
+```

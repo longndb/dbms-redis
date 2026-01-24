@@ -1,0 +1,92 @@
+# ===========================================
+# Redis E-Commerce Demo - Complete Script
+# ===========================================
+# Run: docker exec -it redis-demo redis-cli
+# Then copy-paste commands below
+# ===========================================
+
+# CLEANUP (Run at start)
+FLUSHDB
+
+# ===========================================
+# 1. SESSION MANAGEMENT (Strings + TTL)
+# ===========================================
+SET session:user:1001 '{"userId":1001,"username":"john_doe","role":"customer"}' EX 3600
+GET session:user:1001
+TTL session:user:1001
+EXPIRE session:user:1001 3600
+
+# ===========================================
+# 2. SHOPPING CART (Hashes)
+# ===========================================
+HSET cart:user:1001 product:101 2 product:102 1 product:103 3
+HGETALL cart:user:1001
+HINCRBY cart:user:1001 product:101 1
+HDEL cart:user:1001 product:103
+HGETALL cart:user:1001
+HLEN cart:user:1001
+
+# ===========================================
+# 3. PRODUCT CACHE (Strings + JSON)
+# ===========================================
+MSET product:101 '{"name":"Wireless Mouse","price":29.99}' product:102 '{"name":"USB-C Cable","price":12.99}' product:103 '{"name":"Mechanical Keyboard","price":89.99}'
+MGET product:101 product:102 product:103
+DEL product:101
+GET product:101
+
+# ===========================================
+# 4. RECENTLY VIEWED (Lists)
+# ===========================================
+LPUSH recent:user:1001 product:103 product:101 product:102 product:105 product:101
+LTRIM recent:user:1001 0 4
+LRANGE recent:user:1001 0 -1
+LLEN recent:user:1001
+
+# ===========================================
+# 5. CATEGORIES & TAGS (Sets)
+# ===========================================
+SADD category:electronics product:101 product:103 product:107
+SADD category:accessories product:102 product:104 product:106
+SADD category:gaming product:103 product:105 product:107
+
+SMEMBERS category:electronics
+SINTER category:electronics category:gaming
+SUNION category:electronics category:accessories
+SDIFF category:electronics category:gaming
+SISMEMBER category:electronics product:101
+SCARD category:electronics
+
+# ===========================================
+# 6. LEADERBOARD (Sorted Sets)
+# ===========================================
+ZADD leaderboard:sales 150 product:101 89 product:102 245 product:103 178 product:104 312 product:105
+ZREVRANGE leaderboard:sales 0 2 WITHSCORES
+ZREVRANK leaderboard:sales product:103
+ZINCRBY leaderboard:sales 100 product:101
+ZREVRANGE leaderboard:sales 0 2 WITHSCORES
+ZRANGEBYSCORE leaderboard:sales 100 200 WITHSCORES
+
+# ===========================================
+# 7. UNIQUE VISITORS (HyperLogLog)
+# ===========================================
+PFADD visitors:today user:1001 user:1002 user:1001 user:1003 user:1004
+PFCOUNT visitors:today
+PFADD visitors:yesterday user:1001 user:1005 user:1006
+PFMERGE visitors:week visitors:today visitors:yesterday
+PFCOUNT visitors:week
+
+# ===========================================
+# 8. ATOMIC TRANSACTIONS
+# ===========================================
+SET inventory:A 100
+SET inventory:B 50
+MULTI
+DECRBY inventory:A 20
+INCRBY inventory:B 20
+EXEC
+MGET inventory:A inventory:B
+
+# ===========================================
+# VERIFY ALL DATA
+# ===========================================
+KEYS *
