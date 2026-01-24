@@ -1,92 +1,621 @@
-# ===========================================
-# Redis E-Commerce Demo - Complete Script
-# ===========================================
+# =====================================================================
+# REDIS DATA STRUCTURES DEMO
+# Complete Guide to Redis Data Types and Commands
+# =====================================================================
 # Run: docker exec -it redis-demo redis-cli
-# Then copy-paste commands below
-# ===========================================
+# Then copy-paste commands section by section
+# =====================================================================
 
-# CLEANUP (Run at start)
+# CLEANUP (Run at start of demo)
 FLUSHDB
 
-# ===========================================
-# 1. SESSION MANAGEMENT (Strings + TTL)
-# ===========================================
-SET session:user:1001 '{"userId":1001,"username":"john_doe","role":"customer"}' EX 3600
-GET session:user:1001
-TTL session:user:1001
-EXPIRE session:user:1001 3600
+# =====================================================================
+# 1. STRINGS - The Most Basic Data Type
+# =====================================================================
+# Strings can store: text, numbers, serialized JSON, binary data
+# Max size: 512 MB per string
+# Time Complexity: O(1) for most operations
+# =====================================================================
 
-# ===========================================
-# 2. SHOPPING CART (Hashes)
-# ===========================================
-HSET cart:user:1001 product:101 2 product:102 1 product:103 3
+# --- Basic String Operations ---
+SET greeting "Hello, Redis!"
+GET greeting
+
+# Set with expiration (EX = seconds, PX = milliseconds)
+SET session:token "abc123xyz" EX 60
+TTL session:token
+
+# Set only if key doesn't exist (NX) - useful for locks
+SET lock:resource "process-1" NX
+SET lock:resource "process-2" NX
+GET lock:resource
+
+# Set only if key exists (XX) - useful for updates
+SET lock:resource "process-updated" XX
+GET lock:resource
+
+# --- Numeric Operations ---
+SET counter 100
+INCR counter
+INCRBY counter 10
+DECR counter
+DECRBY counter 5
+GET counter
+
+# Float operations
+SET price 19.99
+INCRBYFLOAT price 0.50
+GET price
+
+# --- String Manipulation ---
+SET message "Hello"
+APPEND message " World!"
+GET message
+STRLEN message
+
+# Get/Set substring
+SETRANGE message 6 "Redis!"
+GET message
+GETRANGE message 0 4
+
+# --- Multiple Keys at Once ---
+MSET user:1:name "Alice" user:1:email "alice@example.com" user:1:age "30"
+MGET user:1:name user:1:email user:1:age
+
+# Check if key exists
+EXISTS user:1:name
+EXISTS nonexistent:key
+
+# Delete keys
+DEL user:1:age
+EXISTS user:1:age
+
+# Get and set in one operation
+SET status "active"
+GETSET status "inactive"
+GET status
+
+# --- JSON Storage (as string) ---
+SET user:profile '{"id":1,"name":"John","roles":["admin","user"]}'
+GET user:profile
+
+# =====================================================================
+# 2. LISTS - Ordered Collections (Linked Lists)
+# =====================================================================
+# Lists are ordered by insertion order
+# Can contain duplicate elements
+# Efficient for push/pop from both ends: O(1)
+# Access by index: O(N)
+# =====================================================================
+
+# --- Push Operations ---
+# LPUSH: Add to the left (head)
+LPUSH tasks "task-1" "task-2" "task-3"
+LRANGE tasks 0 -1
+
+# RPUSH: Add to the right (tail)
+RPUSH tasks "task-4" "task-5"
+LRANGE tasks 0 -1
+
+# --- Pop Operations ---
+LPOP tasks
+RPOP tasks
+LRANGE tasks 0 -1
+
+# Pop with count
+LPUSH numbers 1 2 3 4 5
+LPOP numbers 2
+LRANGE numbers 0 -1
+
+# Blocking pop (useful for queues) - will wait for element
+# BLPOP queue:jobs 5
+
+# --- Access by Index ---
+RPUSH fruits "apple" "banana" "cherry" "date" "elderberry"
+LINDEX fruits 0
+LINDEX fruits 2
+LINDEX fruits -1
+
+# Get range of elements
+LRANGE fruits 0 2
+LRANGE fruits -3 -1
+
+# --- Modify List ---
+# Set element at index
+LSET fruits 1 "blueberry"
+LRANGE fruits 0 -1
+
+# Insert before/after element
+LINSERT fruits BEFORE "cherry" "cantaloupe"
+LINSERT fruits AFTER "cherry" "coconut"
+LRANGE fruits 0 -1
+
+# Remove elements by value
+LREM fruits 1 "coconut"
+LRANGE fruits 0 -1
+
+# Trim list to range (keep only specified range)
+RPUSH logs "log1" "log2" "log3" "log4" "log5" "log6" "log7"
+LTRIM logs 0 4
+LRANGE logs 0 -1
+
+# --- List Info ---
+LLEN fruits
+LPOS fruits "cherry"
+
+# =====================================================================
+# 3. SETS - Unordered Collections of Unique Elements
+# =====================================================================
+# Sets do not allow duplicates
+# Unordered - no guaranteed order
+# Time Complexity: O(1) for add/remove/check membership
+# Powerful set operations: union, intersection, difference
+# =====================================================================
+
+# --- Basic Set Operations ---
+SADD colors "red" "green" "blue"
+SMEMBERS colors
+
+# Adding duplicate (will be ignored)
+SADD colors "red"
+SMEMBERS colors
+
+# Check membership
+SISMEMBER colors "red"
+SISMEMBER colors "yellow"
+
+# Remove elements
+SREM colors "green"
+SMEMBERS colors
+
+# --- Set Info ---
+SCARD colors
+SADD colors "green" "yellow" "purple"
+SCARD colors
+
+# Random element
+SRANDMEMBER colors
+SRANDMEMBER colors 2
+
+# Pop random element
+SPOP colors
+SMEMBERS colors
+
+# --- Set Operations (Union, Intersection, Difference) ---
+SADD set:A 1 2 3 4 5
+SADD set:B 4 5 6 7 8
+
+# Union: All elements from both sets
+SUNION set:A set:B
+
+# Intersection: Only elements in both sets
+SINTER set:A set:B
+
+# Difference: Elements in A but not in B
+SDIFF set:A set:B
+
+# Difference: Elements in B but not in A
+SDIFF set:B set:A
+
+# Store results in new set
+SUNIONSTORE set:all set:A set:B
+SINTERSTORE set:common set:A set:B
+SMEMBERS set:all
+SMEMBERS set:common
+
+# --- Use Case: Tags and Categories ---
+SADD product:101:tags "electronics" "wireless" "gaming"
+SADD product:102:tags "electronics" "usb" "cable"
+SADD product:103:tags "electronics" "gaming" "keyboard"
+
+# Find products with common tags
+SINTER product:101:tags product:103:tags
+
+# =====================================================================
+# 4. HASHES - Field-Value Pairs (Like Objects/Dictionaries)
+# =====================================================================
+# Hashes are maps of fields to values
+# Perfect for representing objects
+# Memory efficient for small hashes
+# Time Complexity: O(1) for single field operations
+# =====================================================================
+
+# --- Basic Hash Operations ---
+HSET user:100 name "Alice" email "alice@example.com" age 28
+HGET user:100 name
+HGET user:100 email
+
+# Get all fields and values
+HGETALL user:100
+
+# Get only keys or values
+HKEYS user:100
+HVALS user:100
+
+# Get multiple fields
+HMGET user:100 name age
+
+# --- Modify Hash Fields ---
+HSET user:100 city "New York"
+HGETALL user:100
+
+# Set only if field doesn't exist
+HSETNX user:100 age 29
+HSETNX user:100 country "USA"
+HGETALL user:100
+
+# Increment numeric field
+HINCRBY user:100 age 1
+HGET user:100 age
+
+# Float increment
+HSET user:100 balance 100.50
+HINCRBYFLOAT user:100 balance 25.75
+HGET user:100 balance
+
+# Delete field
+HDEL user:100 city
+HGETALL user:100
+
+# --- Hash Info ---
+HLEN user:100
+HEXISTS user:100 name
+HEXISTS user:100 address
+HSTRLEN user:100 email
+
+# --- Use Case: Shopping Cart ---
+HSET cart:user:1001 "product:201" 2 "product:202" 1 "product:203" 3
 HGETALL cart:user:1001
-HINCRBY cart:user:1001 product:101 1
-HDEL cart:user:1001 product:103
+HINCRBY cart:user:1001 "product:201" 1
+HDEL cart:user:1001 "product:203"
 HGETALL cart:user:1001
-HLEN cart:user:1001
 
-# ===========================================
-# 3. PRODUCT CACHE (Strings + JSON)
-# ===========================================
-MSET product:101 '{"name":"Wireless Mouse","price":29.99}' product:102 '{"name":"USB-C Cable","price":12.99}' product:103 '{"name":"Mechanical Keyboard","price":89.99}'
-MGET product:101 product:102 product:103
-DEL product:101
-GET product:101
+# =====================================================================
+# 5. SORTED SETS (ZSETS) - Scored Ordered Collections
+# =====================================================================
+# Like Sets but each element has a score
+# Automatically ordered by score (low to high)
+# Unique elements, but scores can repeat
+# Time Complexity: O(log N) for most operations
+# Perfect for: leaderboards, priority queues, time-series
+# =====================================================================
 
-# ===========================================
-# 4. RECENTLY VIEWED (Lists)
-# ===========================================
-LPUSH recent:user:1001 product:103 product:101 product:102 product:105 product:101
-LTRIM recent:user:1001 0 4
-LRANGE recent:user:1001 0 -1
-LLEN recent:user:1001
+# --- Basic Sorted Set Operations ---
+ZADD scores 85 "Alice" 92 "Bob" 78 "Charlie" 95 "Diana" 88 "Eve"
 
-# ===========================================
-# 5. CATEGORIES & TAGS (Sets)
-# ===========================================
-SADD category:electronics product:101 product:103 product:107
-SADD category:accessories product:102 product:104 product:106
-SADD category:gaming product:103 product:105 product:107
+# Get all elements with scores (low to high)
+ZRANGE scores 0 -1 WITHSCORES
 
-SMEMBERS category:electronics
-SINTER category:electronics category:gaming
-SUNION category:electronics category:accessories
-SDIFF category:electronics category:gaming
-SISMEMBER category:electronics product:101
-SCARD category:electronics
+# Get all elements (high to low)
+ZREVRANGE scores 0 -1 WITHSCORES
 
-# ===========================================
-# 6. LEADERBOARD (Sorted Sets)
-# ===========================================
-ZADD leaderboard:sales 150 product:101 89 product:102 245 product:103 178 product:104 312 product:105
-ZREVRANGE leaderboard:sales 0 2 WITHSCORES
-ZREVRANK leaderboard:sales product:103
-ZINCRBY leaderboard:sales 100 product:101
-ZREVRANGE leaderboard:sales 0 2 WITHSCORES
-ZRANGEBYSCORE leaderboard:sales 100 200 WITHSCORES
+# Get top 3 scorers
+ZREVRANGE scores 0 2 WITHSCORES
 
-# ===========================================
-# 7. UNIQUE VISITORS (HyperLogLog)
-# ===========================================
-PFADD visitors:today user:1001 user:1002 user:1001 user:1003 user:1004
-PFCOUNT visitors:today
-PFADD visitors:yesterday user:1001 user:1005 user:1006
-PFMERGE visitors:week visitors:today visitors:yesterday
-PFCOUNT visitors:week
+# --- Score Operations ---
+# Get score of specific member
+ZSCORE scores "Bob"
 
-# ===========================================
-# 8. ATOMIC TRANSACTIONS
-# ===========================================
-SET inventory:A 100
-SET inventory:B 50
+# Increment score
+ZINCRBY scores 5 "Charlie"
+ZSCORE scores "Charlie"
+
+# --- Rank Operations ---
+# Get rank (0-indexed, low to high)
+ZRANK scores "Diana"
+
+# Get rank (0-indexed, high to low)
+ZREVRANK scores "Diana"
+
+# --- Range Queries ---
+# Get elements by score range
+ZRANGEBYSCORE scores 80 90 WITHSCORES
+
+# Get elements by score range (high to low)
+ZREVRANGEBYSCORE scores 95 85 WITHSCORES
+
+# Count elements in score range
+ZCOUNT scores 80 90
+
+# --- Remove Operations ---
+ZREM scores "Eve"
+ZRANGE scores 0 -1 WITHSCORES
+
+# Remove by rank range
+ZADD leaderboard 100 "p1" 200 "p2" 300 "p3" 400 "p4" 500 "p5"
+ZREMRANGEBYRANK leaderboard 0 1
+ZRANGE leaderboard 0 -1 WITHSCORES
+
+# Remove by score range
+ZREMRANGEBYSCORE leaderboard 300 400
+ZRANGE leaderboard 0 -1 WITHSCORES
+
+# --- Sorted Set Info ---
+ZCARD scores
+ZLEXCOUNT scores - +
+
+# --- Use Case: Real-time Leaderboard ---
+ZADD game:leaderboard 1500 "player:1" 2300 "player:2" 1800 "player:3" 2100 "player:4"
+ZREVRANGE game:leaderboard 0 2 WITHSCORES
+ZINCRBY game:leaderboard 150 "player:1"
+ZREVRANGE game:leaderboard 0 2 WITHSCORES
+
+# =====================================================================
+# 6. HYPERLOGLOG - Probabilistic Cardinality Counting
+# =====================================================================
+# Estimates unique element count with ~0.81% error
+# Uses only 12KB regardless of elements counted
+# Cannot retrieve actual elements, only count
+# Perfect for: unique visitors, unique events
+# =====================================================================
+
+# --- Basic HyperLogLog Operations ---
+PFADD visitors "user:1" "user:2" "user:3"
+PFCOUNT visitors
+
+# Adding duplicates doesn't increase count
+PFADD visitors "user:1" "user:2" "user:4" "user:5"
+PFCOUNT visitors
+
+# --- Merge Multiple HyperLogLogs ---
+PFADD day1:visitors "user:1" "user:2" "user:3"
+PFADD day2:visitors "user:2" "user:3" "user:4" "user:5"
+PFADD day3:visitors "user:1" "user:5" "user:6"
+
+PFCOUNT day1:visitors
+PFCOUNT day2:visitors
+PFCOUNT day3:visitors
+
+# Merge to get unique visitors across all days
+PFMERGE week:visitors day1:visitors day2:visitors day3:visitors
+PFCOUNT week:visitors
+
+# =====================================================================
+# 7. BITMAPS - Bit-level Operations
+# =====================================================================
+# Bitmaps are not a separate data type - they use Strings
+# Each bit can be 0 or 1
+# Very memory efficient for binary states
+# Perfect for: feature flags, user activity tracking, bloom filters
+# =====================================================================
+
+# --- Basic Bitmap Operations ---
+# Set individual bits (offset, value)
+SETBIT user:1:features 0 1
+SETBIT user:1:features 1 0
+SETBIT user:1:features 2 1
+SETBIT user:1:features 7 1
+
+# Get individual bits
+GETBIT user:1:features 0
+GETBIT user:1:features 1
+GETBIT user:1:features 7
+
+# Count set bits (1s)
+BITCOUNT user:1:features
+
+# --- Use Case: Daily Active Users ---
+# Bit position = user ID, 1 = active
+SETBIT daily:active:2024-01-15 1001 1
+SETBIT daily:active:2024-01-15 1002 1
+SETBIT daily:active:2024-01-15 1005 1
+SETBIT daily:active:2024-01-16 1001 1
+SETBIT daily:active:2024-01-16 1003 1
+SETBIT daily:active:2024-01-16 1005 1
+
+# Count active users per day
+BITCOUNT daily:active:2024-01-15
+BITCOUNT daily:active:2024-01-16
+
+# Find users active on both days (AND)
+BITOP AND active:both daily:active:2024-01-15 daily:active:2024-01-16
+BITCOUNT active:both
+
+# Find users active on either day (OR)
+BITOP OR active:any daily:active:2024-01-15 daily:active:2024-01-16
+BITCOUNT active:any
+
+# =====================================================================
+# 8. STREAMS - Append-only Log Data Structure
+# =====================================================================
+# Streams are like a log file or message queue
+# Each entry has an auto-generated ID (timestamp-sequence)
+# Supports consumer groups for distributed processing
+# Perfect for: event sourcing, message queues, activity logs
+# =====================================================================
+
+# --- Add Entries to Stream ---
+XADD events * action "login" user "alice" ip "192.168.1.1"
+XADD events * action "purchase" user "bob" product "item-123" amount "29.99"
+XADD events * action "logout" user "alice"
+
+# --- Read Stream ---
+# Read all entries
+XRANGE events - +
+
+# Read with count limit
+XRANGE events - + COUNT 2
+
+# Read in reverse
+XREVRANGE events + -
+
+# --- Stream Info ---
+XLEN events
+XINFO STREAM events
+
+# --- Read New Entries (Blocking) ---
+# XREAD BLOCK 5000 STREAMS events $
+
+# --- Consumer Groups (Advanced) ---
+# Create consumer group
+XGROUP CREATE events mygroup $ MKSTREAM
+
+# Read as consumer in group
+# XREADGROUP GROUP mygroup consumer1 COUNT 1 STREAMS events >
+
+# Acknowledge processed message
+# XACK events mygroup <message-id>
+
+# =====================================================================
+# 9. GEOSPATIAL - Location-based Data
+# =====================================================================
+# Store and query geographic coordinates
+# Uses sorted sets internally
+# Perfect for: finding nearby locations, distance calculations
+# =====================================================================
+
+# --- Add Locations ---
+GEOADD locations -122.4194 37.7749 "San Francisco"
+GEOADD locations -118.2437 34.0522 "Los Angeles"
+GEOADD locations -73.9857 40.7484 "New York"
+GEOADD locations -87.6298 41.8781 "Chicago"
+GEOADD locations -95.3698 29.7604 "Houston"
+
+# --- Get Coordinates ---
+GEOPOS locations "San Francisco"
+GEOPOS locations "New York"
+
+# --- Calculate Distance ---
+GEODIST locations "San Francisco" "Los Angeles" km
+GEODIST locations "New York" "Chicago" km
+GEODIST locations "San Francisco" "New York" mi
+
+# --- Find Nearby Locations ---
+# Find locations within 500km of Los Angeles
+GEOSEARCH locations FROMMEMBER "Los Angeles" BYRADIUS 500 km WITHDIST
+
+# Find locations within 1000 miles of Chicago
+GEOSEARCH locations FROMMEMBER "Chicago" BYRADIUS 1000 mi WITHDIST
+
+# Find by coordinates
+GEOSEARCH locations FROMLONLAT -122.0 37.5 BYRADIUS 100 km WITHDIST
+
+# --- Geohash ---
+GEOHASH locations "San Francisco" "New York"
+
+# =====================================================================
+# 10. KEY MANAGEMENT & TTL
+# =====================================================================
+# Keys can have expiration times (TTL)
+# Commands to manage key lifecycle
+# =====================================================================
+
+# --- TTL Operations ---
+SET temp:data "temporary value"
+EXPIRE temp:data 60
+TTL temp:data
+
+# Set with expiration at specific Unix timestamp
+SET scheduled:task "run me" EXAT 1735689600
+TTL scheduled:task
+
+# Persist (remove expiration)
+PERSIST temp:data
+TTL temp:data
+
+# --- Key Pattern Matching ---
+KEYS user:*
+KEYS *:active:*
+
+# Scan (better for production - non-blocking)
+SCAN 0 MATCH user:* COUNT 10
+
+# --- Key Info ---
+TYPE user:100
+TYPE scores
+TYPE events
+TYPE locations
+
+# Check object encoding
+OBJECT ENCODING user:100
+OBJECT ENCODING scores
+
+# Memory usage
+MEMORY USAGE user:100
+
+# --- Rename Keys ---
+SET old:key "value"
+RENAME old:key new:key
+GET new:key
+
+# Rename only if new key doesn't exist
+SET another:key "another value"
+RENAMENX new:key another:key
+
+# =====================================================================
+# 11. TRANSACTIONS - Atomic Operations
+# =====================================================================
+# MULTI/EXEC provides atomic execution of multiple commands
+# WATCH enables optimistic locking
+# All commands in transaction execute sequentially
+# =====================================================================
+
+# --- Basic Transaction ---
+SET account:A 1000
+SET account:B 500
+
+# Transfer 200 from A to B
 MULTI
-DECRBY inventory:A 20
-INCRBY inventory:B 20
+DECRBY account:A 200
+INCRBY account:B 200
 EXEC
-MGET inventory:A inventory:B
 
-# ===========================================
-# VERIFY ALL DATA
-# ===========================================
+MGET account:A account:B
+
+# --- Discard Transaction ---
+MULTI
+SET test:key "value1"
+SET test:key2 "value2"
+DISCARD
+
+EXISTS test:key
+
+# --- Watch (Optimistic Locking) ---
+# In real scenario, another client might modify watched key
+WATCH account:A
+GET account:A
+MULTI
+DECRBY account:A 100
+EXEC
+GET account:A
+UNWATCH
+
+# =====================================================================
+# 12. PUB/SUB - Publish/Subscribe Messaging
+# =====================================================================
+# Real-time messaging between clients
+# Publishers send messages to channels
+# Subscribers receive messages from channels
+# Note: Messages are not persisted
+# =====================================================================
+
+# --- Subscribe (run in separate terminal) ---
+# SUBSCRIBE news:sports news:tech
+
+# --- Publish ---
+PUBLISH news:sports "Team A wins championship!"
+PUBLISH news:tech "New Redis version released"
+
+# --- Pattern Subscribe ---
+# PSUBSCRIBE news:*
+
+# =====================================================================
+# SUMMARY: REDIS DATA TYPES COMPARISON
+# =====================================================================
+#
+# | Type        | Description                | Key Commands                    |
+# |-------------|----------------------------|---------------------------------|
+# | String      | Text, numbers, binary      | GET, SET, INCR, APPEND         |
+# | List        | Ordered, duplicates OK     | LPUSH, RPUSH, LPOP, LRANGE     |
+# | Set         | Unique, unordered          | SADD, SMEMBERS, SINTER, SUNION |
+# | Hash        | Field-value pairs          | HSET, HGET, HGETALL, HINCRBY   |
+# | Sorted Set  | Unique with scores         | ZADD, ZRANGE, ZRANK, ZINCRBY   |
+# | HyperLogLog | Cardinality estimation     | PFADD, PFCOUNT, PFMERGE        |
+# | Bitmap      | Bit-level operations       | SETBIT, GETBIT, BITCOUNT       |
+# | Stream      | Append-only log            | XADD, XREAD, XRANGE            |
+# | Geospatial  | Geographic coordinates     | GEOADD, GEODIST, GEOSEARCH     |
+# =====================================================================
+
+# VERIFY ALL DATA CREATED
 KEYS *
+DBSIZE
