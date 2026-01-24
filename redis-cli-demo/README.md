@@ -467,34 +467,3 @@ PSUBSCRIBE news:*
 | **Bitmap** | Bit-level operations | SETBIT, GETBIT, BITCOUNT | O(1) per bit |
 | **Stream** | Append-only log | XADD, XREAD, XRANGE | O(1) add, O(N) range |
 | **Geospatial** | Geographic coordinates | GEOADD, GEODIST, GEOSEARCH | O(log N) |
-
----
-
-## Performance Benchmark
-
-```bash
-# Built-in benchmark tool
-redis-benchmark -t set,get -n 100000 -q
-
-# With pipelining
-redis-benchmark -t set,get -n 100000 -q -P 16
-```
-
----
-
-## Q&A
-
-1. **Why Redis over a relational database for caching/sessions?**
-   - Speed (in-memory), automatic expiration, no schema overhead
-
-2. **What happens if Redis crashes?**
-   - Data persistence options: RDB snapshots, AOF logging, or hybrid
-
-3. **How does Redis handle concurrent writes?**
-   - Single-threaded command processing (no locks needed), MULTI/EXEC for transactions
-
-4. **When should you NOT use Redis?**
-   - Complex queries, large datasets exceeding RAM, strong consistency requirements
-
-5. **How does Redis scale?**
-   - Redis Cluster for horizontal scaling, read replicas for read scaling
