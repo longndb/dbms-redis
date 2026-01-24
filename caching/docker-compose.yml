@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: postgres-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -19,7 +18,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis-cache
     ports:
       - "6379:6379"
     healthcheck:
@@ -30,7 +28,6 @@ services:
 
   app:
     build: .
-    container_name: flask-app
     ports:
       - "5000:5000"
     environment:
